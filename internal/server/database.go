@@ -19,9 +19,14 @@ func InintDB(cfg Config) {
 		cfg.DBPort,
 	)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil{
-		log.Fatalf("Failed to connect to DB: %v",err)
+	if err != nil {
+		log.Fatalf("Failed to connect to DB: %v", err)
 	}
 	DB = db
-	log.Print("Connected to DB ")
+
+	if err := DB.AutoMigrate(&User{}); err != nil {
+		log.Fatalf("migration failed: %v", err)
+	}
+
+	log.Println("database connected and migrated")
 }
