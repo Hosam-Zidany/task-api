@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -16,7 +17,12 @@ type Config struct {
 	DBUser string
 	DBPass string
 	DBName string
+
+	JWTSecret string
+	JWTExpHrs int
 }
+
+var AppConfig Config
 
 func LoadConfig() Config {
 	if err := godotenv.Load(); err != nil {
@@ -30,8 +36,20 @@ func LoadConfig() Config {
 		DBPort: getEnv("DB_PORT", "5432"),
 		DBUser: getEnv("DB_USER", "postgres"),
 		DBPass: getEnv("DB_PASS", ""),
-		DBName: getEnv("DB_NAME", "taskdb"),
+		DBName: getEnv("DB_NAME", "GoProject2"),
+
+		JWTSecret: getEnv("JWT_SECRET", "change-this"),
 	}
+	if v := getEnv("JWT_EXP_HOURS", "24"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.JWTExpHrs = n
+		} else {
+			cfg.JWTExpHrs = 24
+		}
+	} else {
+		cfg.JWTExpHrs = 24
+	}
+	AppConfig = cfg
 	return cfg
 }
 

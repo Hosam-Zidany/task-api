@@ -13,6 +13,12 @@ func SetupRouter() *gin.Engine {
 	})
 
 	r.POST("/register", Register)
+	r.POST("/login", Login)
+	protected := r.Group("/api")
+	protected.Use(AuthMiddleware())
+	{
+		protected.GET("/me", Me) // implement Me below
+	}
 
 	return r
 }
