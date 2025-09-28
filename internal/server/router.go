@@ -19,6 +19,10 @@ func SetupRouter() *gin.Engine {
 	{
 		protected.GET("/me", Me)
 		protected.POST("/tasks", CreateTask)
+		protected.GET("/tasks", ListTasks)
+		protected.GET("/tasks/:ID", GetTask)
+		protected.PUT("/tasks/:ID", UpdateTask)
+		protected.DELETE("/tasks/:ID", DeleteTask)
 	}
 
 	return r

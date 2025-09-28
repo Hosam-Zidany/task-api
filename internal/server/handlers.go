@@ -1,13 +1,16 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type LoginInput struct {
@@ -21,7 +24,8 @@ type RegisterInput struct {
 	Password string `json:"password" binding:"required,min=6"`
 }
 type TaskInput struct {
-	Description string `json:"description" binding:"required"`
+	Description     string `json:"description" binding:"required"`
+	StatusCompleted *bool  `json:"status"`
 }
 
 func Login(c *gin.Context) {
@@ -111,26 +115,130 @@ func CreateTask(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	uidVal, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found in context"})
+	uidVal, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
 		return
 	}
-	uid := uidVal.(uint)
-
+	var status bool
+	if input.StatusCompleted != nil {
+		status = *input.StatusCompleted
+	} else {
+		status = false
+	}
 	task := Task{
 		Description:     input.Description,
-		StatusCompleted: false,
-		UserID:          uid,
+		StatusCompleted: status,
+		UserID:          uidVal.(uint),
 	}
 	if err := DB.Create(&task).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"id":          task.ID,
-		"description": task.Description,
-		"status":      task.StatusCompleted,
-		"userID":      task.UserID,
+		"id": task.ID,
 	})
+}
+func ListTasks(c *gin.Context) {
+	uidVal, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+	uid := uidVal.(uint)
+	var tasks []Task
+	if err := DB.Where("user_id = ?", uid).Find(&tasks).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"tasks": tasks})
+}
+func GetTask(c *gin.Context) {
+	var task Task
+	uid, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	taskID, err := strconv.Atoi(c.Param("ID"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+	result := DB.Where("id = ? AND user_id = ?", taskID, uid.(uint)).First(&task)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, task)
+}
+
+func UpdateTask(c *gin.Context) {
+	var input TaskInput
+	if err := c.ShouldBindBodyWithJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	taskID, err := strconv.Atoi(c.Param("ID"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+	uidVal, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+	var task Task
+	result := DB.Where("id = ? and user_id = ?", taskID, uidVal.(uint)).First(&task)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	task.Description = input.Description
+	if input.StatusCompleted != nil {
+		task.StatusCompleted = *input.StatusCompleted
+	} else {
+		task.StatusCompleted = false
+	}
+	if err := DB.Save(&task).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"id": task.ID,
+	})
+}
+func DeleteTask(c *gin.Context) {
+	uid, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	taskID, err := strconv.Atoi(c.Param("ID"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+	result := DB.Where("id = ? AND user_id = ?", taskID, uid.(uint)).Delete(&Task{})
+	if result.Error != nil {
+		if result.RowsAffected == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "task deleted"})
 }

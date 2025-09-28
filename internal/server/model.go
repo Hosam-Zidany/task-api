@@ -12,7 +12,7 @@ type User struct {
 }
 type Task struct {
 	ID              uint   `gorm:"primaryKey"`
-	UserID          uint   `gorm:"not null"`
+	UserID          uint   `gorm:"not null;index"`
 	Description         string `gorm:"not null"`
 	StatusCompleted bool   `gorm:"default:false"`
 }
