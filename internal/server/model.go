@@ -10,3 +10,9 @@ type User struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+type Task struct {
+	ID              uint   `gorm:"primaryKey"`
+	UserID          uint   `gorm:"not null"`
+	Description         string `gorm:"not null"`
+	StatusCompleted bool   `gorm:"default:false"`
+}

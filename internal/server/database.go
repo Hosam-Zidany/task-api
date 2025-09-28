@@ -24,7 +24,7 @@ func InintDB(cfg Config) {
 	}
 	DB = db
 
-	if err := DB.AutoMigrate(&User{}); err != nil {
+	if err := DB.AutoMigrate(&User{}, &Task{}); err != nil {
 		log.Fatalf("migration failed: %v", err)
 	}
 

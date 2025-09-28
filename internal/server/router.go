@@ -17,7 +17,8 @@ func SetupRouter() *gin.Engine {
 	protected := r.Group("/api")
 	protected.Use(AuthMiddleware())
 	{
-		protected.GET("/me", Me) // implement Me below
+		protected.GET("/me", Me)
+		protected.POST("/tasks", CreateTask)
 	}
 
 	return r

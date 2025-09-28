@@ -20,6 +20,9 @@ type RegisterInput struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }
+type TaskInput struct {
+	Description string `json:"description" binding:"required"`
+}
 
 func Login(c *gin.Context) {
 	var input LoginInput
@@ -99,5 +102,35 @@ func Me(c *gin.Context) {
 		"id":       user.ID,
 		"username": user.Username,
 		"email":    user.Email,
+	})
+}
+
+func CreateTask(c *gin.Context) {
+	var input TaskInput
+	if err := c.ShouldBindBodyWithJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	uidVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found in context"})
+		return
+	}
+	uid := uidVal.(uint)
+
+	task := Task{
+		Description:     input.Description,
+		StatusCompleted: false,
+		UserID:          uid,
+	}
+	if err := DB.Create(&task).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"id":          task.ID,
+		"description": task.Description,
+		"status":      task.StatusCompleted,
+		"userID":      task.UserID,
 	})
 }
